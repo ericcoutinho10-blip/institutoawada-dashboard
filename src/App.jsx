@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const IMG = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
@@ -39,6 +39,20 @@ const COR = {
   vermelho: { c: "#DC2626", bg: "rgba(220,38,38,0.13)",  label: "Crítico" },
 };
 const HOTSPOT = { cardiovascular: 30, respiratorio: 28, digestivo: 44, neurologico: 10, endocrino: 22, renal: 46, musculoesqueletico: 40, imunologico: 34, reprodutivo: 50 };
+
+// Posição de cada órgão sobre a imagem do corpo, em % da própria imagem (não do palco).
+// Permite clicar direto no órgão na Visão geral para abrir o sistema correspondente.
+const ORGAO_POS = {
+  neurologico:        { x: 50,   y: 10.5, orgao: "Cérebro" },
+  endocrino:          { x: 50,   y: 19,   orgao: "Tireoide" },
+  respiratorio:       { x: 44.5, y: 26,  orgao: "Pulmões" },
+  cardiovascular:     { x: 52,   y: 29,  orgao: "Coração" },
+  digestivo:          { x: 46.5, y: 36,  orgao: "Fígado e intestinos" },
+  imunologico:        { x: 57,   y: 38,  orgao: "Baço" },
+  renal:              { x: 42.5, y: 42,  orgao: "Rins" },
+  reprodutivo:        { x: 50,   y: 53,  orgao: "Útero e ovários" },
+  musculoesqueletico: { x: 44,   y: 72,  orgao: "Ossos e músculos" },
+};
 
 const BIO = {
   cardiovascular: [
@@ -200,6 +214,29 @@ function Icon({ name, size = 20 }) {
   }
 }
 
+// Mede a caixa da imagem realmente desenhada dentro do <img> (objectFit: contain deixa
+// sobras nas laterais ou no topo/base). Sem isso, os hotspots dos órgãos desalinham do corpo.
+function useImgBox(ref, dep) {
+  const [box, setBox] = useState(null);
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const calc = () => {
+      const cw = el.clientWidth, ch = el.clientHeight;
+      const nw = el.naturalWidth, nh = el.naturalHeight;
+      if (!cw || !ch || !nw || !nh) return;
+      const s = Math.min(cw / nw, ch / nh);
+      const w = nw * s, h = nh * s;
+      setBox({ left: el.offsetLeft + (cw - w) / 2, top: el.offsetTop + (ch - h) / 2, w, h });
+    };
+    calc();
+    const ro = new ResizeObserver(calc); ro.observe(el);
+    el.addEventListener("load", calc);
+    window.addEventListener("resize", calc);
+    return () => { ro.disconnect(); el.removeEventListener("load", calc); window.removeEventListener("resize", calc); };
+  }, [dep]);
+  return box;
+}
+
 function useCount(target, dur = 1000, dep) {
   const [v, setV] = useState(0);
   useEffect(() => {
@@ -246,6 +283,8 @@ export default function App() {
   const [dark, setDark] = useState(false);
   const [sexo, setSexo] = useState("M");
   const [aba, setAba] = useState("resumo");
+  const [hoverOrgao, setHoverOrgao] = useState(null);
+  const imgRef = useRef(null);
 
   const t = dark ? {
     bg: "#080E18", panel: "rgba(18,28,46,0.68)", panelSolid: "#121C2E", border: "rgba(120,160,220,0.16)",
@@ -268,6 +307,8 @@ export default function App() {
 
   const imgKey = isGeral ? `neutro_${sexo}` : sistema;
   const imgSrc = IMG[imgKey] || IMG[`neutro_${sexo}`];
+  const orgaosClicaveis = sexo === "F" ? [...ORGAOS, REPRODUTIVO] : ORGAOS;
+  const imgBox = useImgBox(imgRef, imgSrc);
   const scoreAnim = Math.round(useCount(sis.score, 900, sistema));
 
   return (
@@ -339,10 +380,38 @@ export default function App() {
                 <div style={{ fontSize: 10, color: "#7A8899", textTransform: "uppercase", letterSpacing: "0.1em" }}>Digital Twin</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{sis.nome}</div>
               </div>
-              <img key={imgKey} src={imgSrc} alt={sis.nome}
+              <img ref={imgRef} key={imgKey} src={imgSrc} alt={sis.nome}
                 style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain", animation: "fade 0.5s ease" }} />
-              {!isGeral && (
-                <div style={{ position: "absolute", top: `${HOTSPOT[sistema]}%`, left: "50%", transform: "translateX(-50%)", zIndex: 3 }}>
+              {isGeral && imgBox && orgaosClicaveis.map(s => {
+                const p = ORGAO_POS[s.id]; if (!p) return null;
+                const ss = statusDe(s.score); const on = hoverOrgao === s.id;
+                const dir = p.x > 50 ? 1 : -1;
+                return (
+                  <button key={s.id} onClick={() => setSistema(s.id)}
+                    onMouseEnter={() => setHoverOrgao(s.id)} onMouseLeave={() => setHoverOrgao(null)}
+                    aria-label={`Abrir sistema ${s.nome}`}
+                    style={{ position: "absolute", left: imgBox.left + imgBox.w * p.x / 100, top: imgBox.top + imgBox.h * p.y / 100, transform: "translate(-50%,-50%)",
+                      zIndex: 4, width: 30, height: 30, padding: 0, borderRadius: "50%", border: "none",
+                      background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <span style={{ position: "absolute", width: on ? 30 : 22, height: on ? 30 : 22, borderRadius: "50%",
+                      border: `1.5px solid ${COR[ss].c}`, opacity: on ? 0.9 : 0.5, transition: "all 0.2s",
+                      animation: on ? "none" : "ping 2.4s ease-out infinite" }} />
+                    <span style={{ width: on ? 15 : 11, height: on ? 15 : 11, borderRadius: "50%", background: COR[ss].c,
+                      border: "2px solid rgba(255,255,255,0.95)", boxShadow: `0 2px 8px ${COR[ss].c}`, transition: "all 0.2s" }} />
+                    {on && (
+                      <span style={{ position: "absolute", left: dir === 1 ? "auto" : "calc(100% + 8px)", right: dir === 1 ? "calc(100% + 8px)" : "auto",
+                        top: "50%", transform: "translateY(-50%)", background: "rgba(17,26,42,0.94)", color: "#fff",
+                        padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap", pointerEvents: "none",
+                        boxShadow: "0 6px 18px rgba(0,0,0,0.28)" }}>
+                        <span style={{ display: "block", fontSize: 11.5, fontWeight: 800 }}>{s.nome}</span>
+                        <span style={{ display: "block", fontSize: 9.5, opacity: 0.75 }}>{p.orgao} · {s.score}/100</span>
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              {!isGeral && imgBox && (
+                <div style={{ position: "absolute", top: imgBox.top + imgBox.h * HOTSPOT[sistema] / 100, left: imgBox.left + imgBox.w / 2, transform: "translateX(-50%)", zIndex: 3 }}>
                   <div style={{ background: COR[st].c, color: "#fff", fontSize: 13, fontWeight: 800, padding: "4px 12px", borderRadius: 20, boxShadow: `0 4px 18px ${COR[st].c}`, whiteSpace: "nowrap", animation: "pop 0.4s ease" }}>
                     {scoreAnim}<span style={{ fontSize: 10, opacity: 0.85 }}>/100</span>
                   </div>
@@ -546,7 +615,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{0%{transform:translateX(-50%) scale(0.6);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}`}</style>
+      <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{0%{transform:translateX(-50%) scale(0.6);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}@keyframes ping{0%{transform:scale(0.8);opacity:0.7}70%{transform:scale(1.6);opacity:0}100%{transform:scale(1.6);opacity:0}}`}</style>
     </div>
   );
 }
