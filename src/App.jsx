@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import Profile from "./Profile";
 
 const IMG = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
@@ -278,13 +279,17 @@ function Gauge({ valor, t }) {
   );
 }
 
-export default function App() {
+export default function App({ user, onLogout }) {
   const [sistema, setSistema] = useState("geral");
   const [dark, setDark] = useState(false);
   const [sexo, setSexo] = useState("M");
   const [aba, setAba] = useState("resumo");
   const [hoverOrgao, setHoverOrgao] = useState(null);
+  const [perfilAberto, setPerfilAberto] = useState(false);
   const imgRef = useRef(null);
+
+  const emailUser = user?.email || "";
+  const nomeUser = user?.user_metadata?.full_name || emailUser.split("@")[0] || "Usuário";
 
   const t = dark ? {
     bg: "#080E18", panel: "rgba(18,28,46,0.68)", panelSolid: "#121C2E", border: "rgba(120,160,220,0.16)",
@@ -369,6 +374,15 @@ export default function App() {
                 {dark ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" strokeLinecap="round"/></svg>
                        : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z" strokeLinejoin="round"/></svg>}
               </button>
+              {user && (
+                <button onClick={() => setPerfilAberto(true)} title="Meu perfil" aria-label="Meu perfil"
+                  style={{ ...glass, display: "flex", alignItems: "center", gap: 8, padding: "5px 10px 5px 5px", borderRadius: 11, cursor: "pointer", color: t.text }}>
+                  <span style={{ width: 30, height: 30, borderRadius: 9, background: "linear-gradient(135deg,#3F7BD9,#6C9DE4)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>
+                    {nomeUser[0]?.toUpperCase()}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 700, maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nomeUser}</span>
+                </button>
+              )}
             </div>
           </header>
 
@@ -615,6 +629,9 @@ export default function App() {
           </div>
         </div>
       </div>
+      {perfilAberto && user && (
+        <Profile user={user} dark={dark} onClose={() => setPerfilAberto(false)} onLogout={onLogout} />
+      )}
       <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{0%{transform:translateX(-50%) scale(0.6);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}@keyframes ping{0%{transform:scale(0.8);opacity:0.7}70%{transform:scale(1.6);opacity:0}100%{transform:scale(1.6);opacity:0}}`}</style>
     </div>
   );
