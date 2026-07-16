@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 
 const IMG = {
-  "neutro_M": "/digital-twin/corpo-homem.jpg",
-  "neutro_F": "/digital-twin/corpo-mulher.jpg",
+  "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
+  "neutro_F": "/digital-twin/corpo-mulher-sobrepeso.jpg",
   "cardiovascular": "/digital-twin/sistema-cardiovascular.jpg",
   "respiratorio": "/digital-twin/sistema-respiratorio.jpg",
   "digestivo": "/digital-twin/sistema-digestivo.jpg",
@@ -11,7 +11,7 @@ const IMG = {
   "renal": "/digital-twin/sistema-renal.jpg",
   "musculoesqueletico": "/digital-twin/sistema-musculoesqueletico.jpg",
   "imunologico": "/digital-twin/sistema-imunologico.jpg",
-  "feminino": "/digital-twin/sistema-feminino.jpg",
+  "reprodutivo": "/digital-twin/sistema-feminino.jpg",
 };
 
 const SISTEMAS = [
@@ -28,13 +28,17 @@ const SISTEMAS = [
 
 const ORGAOS = SISTEMAS.filter(s => s.id !== "geral");
 
+// Sistema reprodutivo feminino — só aparece quando o sexo F está selecionado.
+// Fora de SISTEMAS/ORGAOS de propósito, para não alterar as contagens dos 8 sistemas.
+const REPRODUTIVO = { id: "reprodutivo", nome: "Reprodutivo", icone: "female", score: 80 };
+
 function statusDe(s) { return s >= 75 ? "verde" : s >= 55 ? "ambar" : "vermelho"; }
 const COR = {
   verde:    { c: "#16A34A", bg: "rgba(22,163,74,0.13)",  label: "Saudável" },
   ambar:    { c: "#D97706", bg: "rgba(217,119,6,0.13)",  label: "Atenção" },
   vermelho: { c: "#DC2626", bg: "rgba(220,38,38,0.13)",  label: "Crítico" },
 };
-const HOTSPOT = { cardiovascular: 30, respiratorio: 28, digestivo: 44, neurologico: 10, endocrino: 22, renal: 46, musculoesqueletico: 40, imunologico: 34 };
+const HOTSPOT = { cardiovascular: 30, respiratorio: 28, digestivo: 44, neurologico: 10, endocrino: 22, renal: 46, musculoesqueletico: 40, imunologico: 34, reprodutivo: 50 };
 
 const BIO = {
   cardiovascular: [
@@ -87,6 +91,14 @@ const BIO = {
     { nome: "Eosinófilos", valor: 31, unidade: "/µL", ref: "50–500", pos: 15, s: "ambar" },
     { nome: "Leucócitos", valor: 6800, unidade: "/µL", ref: "4000–11000", pos: 45, s: "verde" },
   ],
+  // Faixas de referência do sistema reprodutivo feminino (valores ilustrativos — o twin usa o sexo F como perfil corporal)
+  reprodutivo: [
+    { nome: "Estradiol", valor: 120, unidade: "pg/mL", ref: "30–400 (fase)", pos: 40, s: "verde" },
+    { nome: "FSH", valor: 6.4, unidade: "mUI/mL", ref: "3.5–12.5", pos: 42, s: "verde" },
+    { nome: "LH", valor: 7.1, unidade: "mUI/mL", ref: "2.4–12.6", pos: 46, s: "verde" },
+    { nome: "Progesterona", valor: 8.2, unidade: "ng/mL", ref: "> 3 (lútea)", pos: 55, s: "verde" },
+    { nome: "AMH", valor: 2.3, unidade: "ng/mL", ref: "1.0–4.0", pos: 48, s: "verde" },
+  ],
 };
 
 const FRASE = {
@@ -99,6 +111,7 @@ const FRASE = {
   renal: "Função renal excelente (TFG > 90). Urina muito concentrada indica hidratação insuficiente.",
   musculoesqueletico: "IMC 29,06 (sobrepeso próximo da obesidade grau I). Meta: 79–80 kg em 6 meses.",
   imunologico: "Sem autoimunidade (FAN não reagente). Ferritina 433 sugere inflamação de baixo grau.",
+  reprodutivo: "Útero, ovários e trompas em destaque. Faixas hormonais dentro da normalidade para a fase do ciclo.",
 };
 
 // Relatório gerado pela IA (no sistema real vem do Supabase / WF2)
@@ -182,6 +195,7 @@ function Icon({ name, size = 20 }) {
     case "bone":   return <svg {...p}><path d="M6 6a2 2 0 1 0-1 3l6 6a2 2 0 1 0 3 1 2 2 0 1 0-1-3l-6-6a2 2 0 0 0-1-1z"/></svg>;
     case "shield": return <svg {...p}><path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/></svg>;
     case "spark":  return <svg {...p}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/></svg>;
+    case "female": return <svg {...p}><circle cx="12" cy="8" r="5"/><path d="M12 13v8M9 18h6"/></svg>;
     default:       return <svg {...p}><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>;
   }
 }
@@ -243,7 +257,7 @@ export default function App() {
   const glass = { background: t.panel, border: `1px solid ${t.border}`, borderRadius: 16, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" };
   const PALCO = "radial-gradient(ellipse 55% 45% at 50% 42%, #EAF2F7 0%, rgba(234,242,247,0) 62%), linear-gradient(to bottom, #D5DFE6 0%, #DFE6ED 35%, #DEE6EE 60%, #EEF8FC 82%, #D8DEE6 100%)";
 
-  const sis = SISTEMAS.find(s => s.id === sistema);
+  const sis = [...SISTEMAS, REPRODUTIVO].find(s => s.id === sistema) || SISTEMAS[0];
   const st = statusDe(sis.score);
   const isGeral = sistema === "geral";
   const bio = BIO[sistema] || [];
@@ -278,6 +292,19 @@ export default function App() {
               </button>
             );
           })}
+          {sexo === "F" && (() => {
+            const ativo = sistema === REPRODUTIVO.id; const ss = statusDe(REPRODUTIVO.score);
+            return (
+              <button key={REPRODUTIVO.id} onClick={() => setSistema(REPRODUTIVO.id)} title={REPRODUTIVO.nome}
+                style={{ position: "relative", width: 46, height: 46, borderRadius: 13, border: "none", cursor: "pointer",
+                  background: ativo ? "linear-gradient(135deg,#D14D8F,#E87DB0)" : "transparent",
+                  color: ativo ? "#fff" : t.textDim, display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: ativo ? "0 4px 14px rgba(209,77,143,0.4)" : "none", transition: "all 0.2s" }}>
+                <Icon name={REPRODUTIVO.icone} />
+                {!ativo && <span style={{ position: "absolute", top: 7, right: 8, width: 7, height: 7, borderRadius: "50%", background: COR[ss].c }} />}
+              </button>
+            );
+          })()}
         </nav>
 
         <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -294,7 +321,7 @@ export default function App() {
               </div>
               <div style={{ ...glass, display: "flex", padding: 4, borderRadius: 11 }}>
                 {["M", "F"].map(x => (
-                  <button key={x} onClick={() => setSexo(x)} style={{ border: "none", cursor: "pointer", padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: sexo === x ? "#3F7BD9" : "transparent", color: sexo === x ? "#fff" : t.textDim }}>{x}</button>
+                  <button key={x} onClick={() => { setSexo(x); if (x === "M" && sistema === "reprodutivo") setSistema("geral"); }} style={{ border: "none", cursor: "pointer", padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: sexo === x ? "#3F7BD9" : "transparent", color: sexo === x ? "#fff" : t.textDim }}>{x}</button>
                 ))}
               </div>
               <button onClick={() => setDark(!dark)} style={{ ...glass, width: 40, height: 40, borderRadius: 11, cursor: "pointer", color: t.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
