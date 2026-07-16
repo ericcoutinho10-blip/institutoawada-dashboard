@@ -40,13 +40,6 @@ const COR = {
 };
 const HOTSPOT = { cardiovascular: 30, respiratorio: 28, digestivo: 44, neurologico: 10, endocrino: 22, renal: 46, musculoesqueletico: 40, imunologico: 34, reprodutivo: 50 };
 
-const LENTE = 132;  // diâmetro da lente de zoom, em px
-const ZOOM = 3.2;   // ampliação do órgão dentro da lente
-
-// Tons da tintura do corpo. Separados de COR de propósito: o âmbar da UI (#D97706) é um
-// laranja escuro que, aplicado como matiz, deixa o corpo marrom — parecendo pele, não alerta.
-const TINTA = { verde: "#22C55E", ambar: "#FACC15", vermelho: "#EF4444" };
-
 // Posição de cada órgão sobre a imagem do corpo, em % da própria imagem (não do palco).
 // Permite clicar direto no órgão na Visão geral para abrir o sistema correspondente.
 const ORGAO_POS = {
@@ -291,7 +284,6 @@ export default function App() {
   const [sexo, setSexo] = useState("M");
   const [aba, setAba] = useState("resumo");
   const [hoverOrgao, setHoverOrgao] = useState(null);
-  const [tapOrgao, setTapOrgao] = useState(null); // touch: 1º toque mostra a lente, 2º abre a aba
   const imgRef = useRef(null);
 
   const t = dark ? {
@@ -317,8 +309,6 @@ export default function App() {
   const imgSrc = IMG[imgKey] || IMG[`neutro_${sexo}`];
   const orgaosClicaveis = sexo === "F" ? [...ORGAOS, REPRODUTIVO] : ORGAOS;
   const imgBox = useImgBox(imgRef, imgSrc);
-  // Na visão geral o corpo reflete a média dos sistemas; num sistema, o score dele.
-  const stBody = isGeral ? statusDe(scoreGeral) : st;
   const scoreAnim = Math.round(useCount(sis.score, 900, sistema));
 
   return (
@@ -392,24 +382,12 @@ export default function App() {
               </div>
               <img ref={imgRef} key={imgKey} src={imgSrc} alt={sis.nome}
                 style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain", animation: "fade 0.5s ease" }} />
-              {/* Tinge o corpo conforme o score: verde / âmbar / vermelho.
-                  mix-blend-mode "color" troca matiz+saturação e preserva a luminosidade, então o
-                  relevo dos órgãos continua legível. Cobre o palco todo (não só a imagem) para não
-                  deixar emenda visível nas sobras do object-fit. z-index 1: fica sobre a imagem,
-                  mas abaixo do rótulo (z2) e dos hotspots (z4), que não devem ser tingidos. */}
-              <div style={{ position: "absolute", inset: 0, background: TINTA[stBody], mixBlendMode: "color",
-                opacity: 0.62, pointerEvents: "none", zIndex: 1, transition: "background 0.45s ease" }} />
               {isGeral && imgBox && orgaosClicaveis.map(s => {
                 const p = ORGAO_POS[s.id]; if (!p) return null;
                 const ss = statusDe(s.score); const on = hoverOrgao === s.id;
                 const dir = p.x > 50 ? 1 : -1;
                 return (
-                  <button key={s.id} onClick={() => {
-                      // Em telas de toque não existe hover: o 1º toque revela a lente, o 2º abre a aba.
-                      const semHover = typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
-                      if (semHover && tapOrgao !== s.id) { setTapOrgao(s.id); setHoverOrgao(s.id); return; }
-                      setSistema(s.id); setTapOrgao(null);
-                    }}
+                  <button key={s.id} onClick={() => setSistema(s.id)}
                     onMouseEnter={() => setHoverOrgao(s.id)} onMouseLeave={() => setHoverOrgao(null)}
                     aria-label={`Abrir sistema ${s.nome}`}
                     style={{ position: "absolute", left: imgBox.left + imgBox.w * p.x / 100, top: imgBox.top + imgBox.h * p.y / 100, transform: "translate(-50%,-50%)",
@@ -421,21 +399,12 @@ export default function App() {
                     <span style={{ width: on ? 15 : 11, height: on ? 15 : 11, borderRadius: "50%", background: COR[ss].c,
                       border: "2px solid rgba(255,255,255,0.95)", boxShadow: `0 2px 8px ${COR[ss].c}`, transition: "all 0.2s" }} />
                     {on && (
-                      <span style={{ position: "absolute", left: dir === 1 ? "auto" : `calc(100% + ${LENTE / 2}px)`, right: dir === 1 ? `calc(100% + ${LENTE / 2}px)` : "auto",
-                        top: "50%", transform: "translateY(-50%)", display: "flex", flexDirection: "column", alignItems: "center",
-                        gap: 6, pointerEvents: "none", animation: "pop2 0.18s ease-out" }}>
-                        {/* Lente: mesma imagem ampliada, centrada no órgão */}
-                        <span style={{ width: LENTE, height: LENTE, borderRadius: "50%", display: "block",
-                          backgroundImage: `url(${imgSrc})`, backgroundRepeat: "no-repeat",
-                          backgroundSize: `${imgBox.w * ZOOM}px ${imgBox.h * ZOOM}px`,
-                          backgroundPosition: `${LENTE / 2 - (imgBox.w * p.x / 100) * ZOOM}px ${LENTE / 2 - (imgBox.h * p.y / 100) * ZOOM}px`,
-                          border: `3px solid ${COR[ss].c}`, boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-                          backgroundColor: "#EAF2F7" }} />
-                        <span style={{ background: "rgba(17,26,42,0.94)", color: "#fff", padding: "5px 10px", borderRadius: 8,
-                          whiteSpace: "nowrap", boxShadow: "0 6px 18px rgba(0,0,0,0.28)", textAlign: "center" }}>
-                          <span style={{ display: "block", fontSize: 11.5, fontWeight: 800 }}>{s.nome}</span>
-                          <span style={{ display: "block", fontSize: 9.5, opacity: 0.75 }}>{p.orgao} · {s.score}/100</span>
-                        </span>
+                      <span style={{ position: "absolute", left: dir === 1 ? "auto" : "calc(100% + 8px)", right: dir === 1 ? "calc(100% + 8px)" : "auto",
+                        top: "50%", transform: "translateY(-50%)", background: "rgba(17,26,42,0.94)", color: "#fff",
+                        padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap", pointerEvents: "none",
+                        boxShadow: "0 6px 18px rgba(0,0,0,0.28)" }}>
+                        <span style={{ display: "block", fontSize: 11.5, fontWeight: 800 }}>{s.nome}</span>
+                        <span style={{ display: "block", fontSize: 9.5, opacity: 0.75 }}>{p.orgao} · {s.score}/100</span>
                       </span>
                     )}
                   </button>
@@ -646,7 +615,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{0%{transform:translateX(-50%) scale(0.6);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}@keyframes ping{0%{transform:scale(0.8);opacity:0.7}70%{transform:scale(1.6);opacity:0}100%{transform:scale(1.6);opacity:0}}@keyframes pop2{from{opacity:0;transform:translateY(-50%) scale(0.85)}to{opacity:1;transform:translateY(-50%) scale(1)}}`}</style>
+      <style>{`@keyframes fade{from{opacity:0}to{opacity:1}}@keyframes pop{0%{transform:translateX(-50%) scale(0.6);opacity:0}100%{transform:translateX(-50%) scale(1);opacity:1}}@keyframes ping{0%{transform:scale(0.8);opacity:0.7}70%{transform:scale(1.6);opacity:0}100%{transform:scale(1.6);opacity:0}}`}</style>
     </div>
   );
 }
