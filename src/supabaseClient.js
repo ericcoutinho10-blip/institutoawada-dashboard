@@ -8,9 +8,9 @@ import { createClient } from "@supabase/supabase-js";
 // Environment Variables: VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY), elas têm
 // prioridade. Caso contrário, usa os valores fixos abaixo.
 const SUPABASE_URL =
-  import.meta.env.VITE_SUPABASE_URL || "COLE_AQUI_A_PROJECT_URL";
+  import.meta.env.VITE_SUPABASE_URL || "https://yfbkmncbclxvcnemnrri.supabase.co";
 const SUPABASE_ANON_KEY =
-  import.meta.env.VITE_SUPABASE_ANON_KEY || "COLE_AQUI_A_ANON_KEY";
+  import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_6l34qaW8apZMa2AY3AmFCA_A7N7m4TU";
 
 export const supabasePronto =
   /^https?:\/\//.test(SUPABASE_URL) &&
