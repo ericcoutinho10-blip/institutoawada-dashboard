@@ -4,6 +4,8 @@ import Profile from "./Profile";
 const IMG = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
   "neutro_F": "/digital-twin/corpo-mulher-sobrepeso.jpg",
+  "normal_M": "/digital-twin/corpo-homem.jpg",
+  "normal_F": "/digital-twin/corpo-mulher.jpg",
   "cardiovascular": "/digital-twin/sistema-cardiovascular.jpg",
   "respiratorio": "/digital-twin/sistema-respiratorio.jpg",
   "digestivo": "/digital-twin/sistema-digestivo.jpg",
@@ -433,7 +435,8 @@ export default function App({ user, onLogout }) {
   orgaosAtuais.forEach(s => cont[statusDe(s.score)]++);
   const pct = (n) => Math.round((n / orgaosAtuais.length) * 100);
 
-  const imgKey = isGeral ? `neutro_${sexo}` : sistema;
+  const tipoCorporal = dp?.paciente?.tipo_corpo || "sobrepeso";
+  const imgKey = isGeral ? (tipoCorporal === "normal" ? `normal_${sexo}` : `neutro_${sexo}`) : sistema;
   const imgSrc = IMG[imgKey] || IMG[`neutro_${sexo}`];
   const orgaosClicaveis = sexo === "F" ? [...orgaosAtuais, reprodutivoAtual] : orgaosAtuais;
   const imgBox = useImgBox(imgRef, imgSrc);
