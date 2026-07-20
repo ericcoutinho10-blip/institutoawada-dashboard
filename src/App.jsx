@@ -440,8 +440,8 @@ export default function App({ user, onLogout }) {
   const scoreAnim = Math.round(useCount(sis.score, 900, sistema));
 
   return (
-    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: t.bg, minHeight: "100vh", color: t.text, transition: "background 0.4s" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", minHeight: "100vh" }}>
+    <div style={{ fontFamily: "'Inter', system-ui, sans-serif", background: t.bg, height: "100vh", overflow: "hidden", color: t.text, transition: "background 0.4s" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "72px 1fr", height: "100%" }}>
 
         <nav style={{ ...glass, borderRadius: 0, border: "none", borderRight: `1px solid ${t.border}`, display: "flex", flexDirection: "column", alignItems: "center", padding: "16px 0", gap: 5 }}>
           <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#3F7BD9,#6C9DE4)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, boxShadow: "0 4px 12px rgba(63,123,217,0.4)" }}>
@@ -476,7 +476,7 @@ export default function App({ user, onLogout }) {
           })()}
         </nav>
 
-        <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 14, height: "100%", overflow: "hidden" }}>
           <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em" }}>Instituto Awada</div>
@@ -512,7 +512,7 @@ export default function App({ user, onLogout }) {
           <div style={{ display: "grid", gridTemplateColumns: "0.92fr 1.28fr", gap: 14, flex: 1, minHeight: 0 }}>
 
             {/* Palco */}
-            <div style={{ ...glass, position: "relative", overflow: "hidden", display: "flex", alignItems: "flex-end", justifyContent: "center", background: PALCO, height: "100%", minHeight: 620 }}>
+            <div style={{ ...glass, position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: PALCO, minHeight: 0 }}>
               <div style={{ position: "absolute", top: 14, left: 16, zIndex: 2 }}>
                 <div style={{ fontSize: 10, color: "#7A8899", textTransform: "uppercase", letterSpacing: "0.1em" }}>Digital Twin</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{sis.nome}</div>
@@ -557,7 +557,7 @@ export default function App({ user, onLogout }) {
             </div>
 
             {/* Coluna direita */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, overflow: "auto" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", minHeight: 0 }}>
 
               {/* Barra de abas */}
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -725,7 +725,12 @@ export default function App({ user, onLogout }) {
                       </div>
                       <span style={{ fontSize: 10, fontWeight: 700, color: "#16A34A", background: "rgba(22,163,74,0.12)", padding: "3px 9px", borderRadius: 20 }}>Revisado</span>
                     </div>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.65, color: t.textDim, whiteSpace: "pre-line" }}>{relatorioAtual.texto}</div>
+                    <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+                      {dp?.relatorio_anamnese
+                        ? <MarkdownTab text={relatorioAtual.texto} t={t} />
+                        : <div style={{ fontSize: 12.5, lineHeight: 1.65, color: t.textDim, whiteSpace: "pre-line" }}>{relatorioAtual.texto}</div>
+                      }
+                    </div>
                   </div>
                 </>
               ) : (
@@ -768,7 +773,7 @@ export default function App({ user, onLogout }) {
                       <div style={{ fontSize: 12.5, fontWeight: 800 }}>Leitura da IA para este sistema</div>
                     </div>
                     <div style={{ fontSize: 12.5, lineHeight: 1.65, color: t.textDim }}>
-                      {relatorioAtual.texto.split("\n\n")[0]}
+                      {relatorioAtual.texto.split("\n").filter(l => l.trim() && !l.startsWith("#") && !l.startsWith("|"))[0] || relatorioAtual.texto.split("\n\n")[0]}
                     </div>
                     <button onClick={() => setSistema("geral")} style={{ marginTop: 12, background: "transparent", border: `1px solid ${t.border}`, color: "#3F7BD9", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 9, cursor: "pointer" }}>
                       Ver análise completa
