@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import Profile from "./Profile";
+const Body3D = lazy(() => import("./Body3D"));
 
 const IMG = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
@@ -520,42 +521,34 @@ export default function App({ user, onLogout }) {
                 <div style={{ fontSize: 10, color: "#7A8899", textTransform: "uppercase", letterSpacing: "0.1em" }}>Digital Twin</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{sis.nome}</div>
               </div>
-              <img ref={imgRef} key={imgKey} src={imgSrc} alt={sis.nome}
-                style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain", animation: "fade 0.5s ease" }} />
-              {isGeral && imgBox && orgaosClicaveis.map(s => {
-                const p = ORGAO_POS[s.id]; if (!p) return null;
-                const ss = statusDe(s.score); const on = hoverOrgao === s.id;
-                const dir = p.x > 50 ? 1 : -1;
-                return (
-                  <button key={s.id} onClick={() => setSistema(s.id)}
-                    onMouseEnter={() => setHoverOrgao(s.id)} onMouseLeave={() => setHoverOrgao(null)}
-                    aria-label={`Abrir sistema ${s.nome}`}
-                    style={{ position: "absolute", left: imgBox.left + imgBox.w * p.x / 100, top: imgBox.top + imgBox.h * p.y / 100, transform: "translate(-50%,-50%)",
-                      zIndex: 4, width: 30, height: 30, padding: 0, borderRadius: "50%", border: "none",
-                      background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ position: "absolute", width: on ? 30 : 22, height: on ? 30 : 22, borderRadius: "50%",
-                      border: `1.5px solid ${COR[ss].c}`, opacity: on ? 0.9 : 0.5, transition: "all 0.2s",
-                      animation: on ? "none" : "ping 2.4s ease-out infinite" }} />
-                    <span style={{ width: on ? 15 : 11, height: on ? 15 : 11, borderRadius: "50%", background: COR[ss].c,
-                      border: "2px solid rgba(255,255,255,0.95)", boxShadow: `0 2px 8px ${COR[ss].c}`, transition: "all 0.2s" }} />
-                    {on && (
-                      <span style={{ position: "absolute", left: dir === 1 ? "auto" : "calc(100% + 8px)", right: dir === 1 ? "calc(100% + 8px)" : "auto",
-                        top: "50%", transform: "translateY(-50%)", background: "rgba(17,26,42,0.94)", color: "#fff",
-                        padding: "5px 10px", borderRadius: 8, whiteSpace: "nowrap", pointerEvents: "none",
-                        boxShadow: "0 6px 18px rgba(0,0,0,0.28)" }}>
-                        <span style={{ display: "block", fontSize: 11.5, fontWeight: 800 }}>{s.nome}</span>
-                        <span style={{ display: "block", fontSize: 9.5, opacity: 0.75 }}>{p.orgao} · {s.score}/100</span>
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              {!isGeral && imgBox && (
-                <div style={{ position: "absolute", top: imgBox.top + imgBox.h * HOTSPOT[sistema] / 100, left: imgBox.left + imgBox.w / 2, transform: "translateX(-50%)", zIndex: 3 }}>
-                  <div style={{ background: COR[st].c, color: "#fff", fontSize: 13, fontWeight: 800, padding: "4px 12px", borderRadius: 20, boxShadow: `0 4px 18px ${COR[st].c}`, whiteSpace: "nowrap", animation: "pop 0.4s ease" }}>
-                    {scoreAnim}<span style={{ fontSize: 10, opacity: 0.85 }}>/100</span>
-                  </div>
-                </div>
+              {isGeral ? (
+                <Suspense fallback={
+                  <img ref={imgRef} src={imgSrc} alt="corpo"
+                    style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
+                }>
+                  <Body3D
+                    sexo={sexo}
+                    orgaos={orgaosClicaveis}
+                    sistemaAtivo={sistema}
+                    onClickSistema={setSistema}
+                    fallback={
+                      <img ref={imgRef} key={imgKey} src={imgSrc} alt="corpo"
+                        style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
+                    }
+                  />
+                </Suspense>
+              ) : (
+                <>
+                  <img ref={imgRef} key={imgKey} src={imgSrc} alt={sis.nome}
+                    style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain", animation: "fade 0.5s ease" }} />
+                  {imgBox && (
+                    <div style={{ position: "absolute", top: imgBox.top + imgBox.h * HOTSPOT[sistema] / 100, left: imgBox.left + imgBox.w / 2, transform: "translateX(-50%)", zIndex: 3 }}>
+                      <div style={{ background: COR[st].c, color: "#fff", fontSize: 13, fontWeight: 800, padding: "4px 12px", borderRadius: 20, boxShadow: `0 4px 18px ${COR[st].c}`, whiteSpace: "nowrap", animation: "pop 0.4s ease" }}>
+                        {scoreAnim}<span style={{ fontSize: 10, opacity: 0.85 }}>/100</span>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
