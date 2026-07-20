@@ -197,6 +197,90 @@ const TREINO = [
     itens: ["4 dias musculação com progressão de carga", "2 dias HIIT — 25 a 30 min (40s/60s)", "Drop sets no último exercício de cada grupo", "Superséries antagonistas", "Sprints em inclinação 1x/semana — 10x20s"] },
 ];
 
+function MarkdownTab({ text, t }) {
+  if (!text) return <p style={{ color: t.textDim, fontStyle: "italic" }}>Não disponível</p>;
+
+  function parseBold(str) {
+    const parts = str.split(/\*\*(.*?)\*\*/g);
+    return parts.map((p, i) => i % 2 === 1 ? <strong key={i}>{p}</strong> : p);
+  }
+
+  const lines = text.split("\n");
+  const out = [];
+  let listItems = [];
+  let tableRows = [];
+  let inTable = false;
+
+  const flushList = () => {
+    if (!listItems.length) return;
+    out.push(<ul key={`ul${out.length}`} style={{ paddingLeft: 0, listStyle: "none", margin: "6px 0" }}>{listItems}</ul>);
+    listItems = [];
+  };
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    out.push(
+      <div key={`tbl${out.length}`} style={{ overflowX: "auto", margin: "12px 0" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <tbody>{tableRows.map((row, ri) => (
+            <tr key={ri}>{row.map((cell, ci) => (
+              ri === 0
+                ? <th key={ci} style={{ background: "#1e3a5f", color: "#fff", padding: "8px 10px", textAlign: "left", fontSize: 11 }}>{cell.trim()}</th>
+                : <td key={ci} style={{ padding: "8px 10px", borderBottom: "1px solid rgba(0,0,0,0.06)", color: t.textDim }}>{parseBold(cell.trim())}</td>
+            ))}</tr>
+          ))}</tbody>
+        </table>
+      </div>
+    );
+    tableRows = [];
+    inTable = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    const isTableRow = ln.trim().startsWith("|") && ln.trim().endsWith("|");
+    const isSep = isTableRow && ln.split("|").every(c => /^[\s\-:]+$/.test(c));
+
+    if (isSep) continue;
+    if (isTableRow) {
+      flushList();
+      inTable = true;
+      tableRows.push(ln.split("|").filter((_, j, a) => j > 0 && j < a.length - 1));
+      continue;
+    }
+    if (inTable) { flushTable(); }
+
+    if (ln.startsWith("# ")) {
+      flushList();
+      out.push(<h2 key={i} style={{ fontSize: 16, fontWeight: 800, color: t.text, margin: "20px 0 8px", paddingBottom: 6, borderBottom: `2px solid ${t.border}` }}>{ln.slice(2)}</h2>);
+    } else if (ln.startsWith("## ")) {
+      flushList();
+      out.push(<h3 key={i} style={{ fontSize: 14, fontWeight: 700, color: t.text, margin: "16px 0 6px" }}>{ln.slice(3)}</h3>);
+    } else if (ln.startsWith("### ")) {
+      flushList();
+      out.push(<h4 key={i} style={{ fontSize: 13, fontWeight: 700, color: "#3F7BD9", margin: "12px 0 4px" }}>{ln.slice(4)}</h4>);
+    } else if (ln.startsWith("> ")) {
+      flushList();
+      out.push(<blockquote key={i} style={{ borderLeft: "3px solid #6366f1", paddingLeft: 12, margin: "10px 0", color: "#6366f1", fontSize: 12.5, lineHeight: 1.55 }}>{parseBold(ln.slice(2))}</blockquote>);
+    } else if (/^[-•*]\s/.test(ln)) {
+      listItems.push(
+        <li key={i} style={{ display: "flex", gap: 8, margin: "4px 0", fontSize: 13, lineHeight: 1.5, color: t.textDim }}>
+          <span style={{ color: "#3F7BD9", flexShrink: 0, fontWeight: 700 }}>•</span>
+          <span>{parseBold(ln.replace(/^[-•*]\s+/, ""))}</span>
+        </li>
+      );
+    } else if (ln.trim() === "") {
+      flushList();
+      out.push(<div key={i} style={{ height: 6 }} />);
+    } else {
+      flushList();
+      out.push(<p key={i} style={{ margin: "5px 0", fontSize: 13, lineHeight: 1.65, color: t.textDim }}>{parseBold(ln)}</p>);
+    }
+  }
+  flushList();
+  flushTable();
+  return <div>{out}</div>;
+}
+
 function Icon({ name, size = 20 }) {
   const p = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" };
   switch (name) {
@@ -288,6 +372,45 @@ export default function App({ user, onLogout }) {
   const [perfilAberto, setPerfilAberto] = useState(false);
   const imgRef = useRef(null);
 
+  // ── Dados reais do paciente (carregados via ?id= na URL) ──
+  const [dadosPaciente, setDadosPaciente] = useState(null);
+  const [loadingDados, setLoadingDados] = useState(false);
+
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (!id) return;
+    setLoadingDados(true);
+    fetch(`https://workflows.alphasellerscx.com.br/webhook/paciente-dados?id=${encodeURIComponent(id)}`)
+      .then(r => r.json())
+      .then(d => { setDadosPaciente(d); setLoadingDados(false); })
+      .catch(() => setLoadingDados(false));
+  }, []);
+
+  useEffect(() => {
+    if (dadosPaciente?.paciente?.sexo) setSexo(dadosPaciente.paciente.sexo);
+  }, [dadosPaciente]);
+
+  // Dados derivados — usa dados reais se disponíveis, caso contrário usa demo hardcoded
+  const dp = dadosPaciente;
+  const sistemasAtuais = dp?.sistemas
+    ? SISTEMAS.map(s => ({ ...s, score: dp.sistemas[s.id] ?? s.score }))
+    : SISTEMAS;
+  const orgaosAtuais = sistemasAtuais.filter(s => s.id !== "geral");
+  const reprodutivoAtual = dp?.sistemas?.reprodutivo != null
+    ? { ...REPRODUTIVO, score: dp.sistemas.reprodutivo }
+    : REPRODUTIVO;
+  const bioAtual = dp?.bio || BIO;
+  const fraseAtual = dp?.frase || FRASE;
+  const atencaoAtual = dp?.atencao || ATENCAO;
+  const relatorioAtual = dp ? {
+    data: dp.paciente?.data_analise || RELATORIO_IA.data,
+    modelo: RELATORIO_IA.modelo,
+    texto: dp.relatorio_anamnese || RELATORIO_IA.texto,
+  } : RELATORIO_IA;
+  const nomePaciente = dp?.paciente?.nome || "Eric Coutinho";
+  const idadeCrono = dp?.paciente?.idade_cronologica || 33;
+  const idadeBio = dp?.paciente?.idade_biologica || 36;
+
   const emailUser = user?.email || "";
   const nomeUser = user?.user_metadata?.full_name || emailUser.split("@")[0] || "Usuário";
 
@@ -301,18 +424,18 @@ export default function App({ user, onLogout }) {
   const glass = { background: t.panel, border: `1px solid ${t.border}`, borderRadius: 16, backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" };
   const PALCO = "radial-gradient(ellipse 55% 45% at 50% 42%, #EAF2F7 0%, rgba(234,242,247,0) 62%), linear-gradient(to bottom, #D5DFE6 0%, #DFE6ED 35%, #DEE6EE 60%, #EEF8FC 82%, #D8DEE6 100%)";
 
-  const sis = [...SISTEMAS, REPRODUTIVO].find(s => s.id === sistema) || SISTEMAS[0];
+  const sis = [...sistemasAtuais, reprodutivoAtual].find(s => s.id === sistema) || sistemasAtuais[0];
   const st = statusDe(sis.score);
   const isGeral = sistema === "geral";
-  const bio = BIO[sistema] || [];
-  const scoreGeral = Math.round(ORGAOS.reduce((a, s) => a + s.score, 0) / ORGAOS.length);
+  const bio = bioAtual[sistema] || [];
+  const scoreGeral = Math.round(orgaosAtuais.reduce((a, s) => a + s.score, 0) / orgaosAtuais.length);
   const cont = { verde: 0, ambar: 0, vermelho: 0 };
-  ORGAOS.forEach(s => cont[statusDe(s.score)]++);
-  const pct = (n) => Math.round((n / ORGAOS.length) * 100);
+  orgaosAtuais.forEach(s => cont[statusDe(s.score)]++);
+  const pct = (n) => Math.round((n / orgaosAtuais.length) * 100);
 
   const imgKey = isGeral ? `neutro_${sexo}` : sistema;
   const imgSrc = IMG[imgKey] || IMG[`neutro_${sexo}`];
-  const orgaosClicaveis = sexo === "F" ? [...ORGAOS, REPRODUTIVO] : ORGAOS;
+  const orgaosClicaveis = sexo === "F" ? [...orgaosAtuais, reprodutivoAtual] : orgaosAtuais;
   const imgBox = useImgBox(imgRef, imgSrc);
   const scoreAnim = Math.round(useCount(sis.score, 900, sistema));
 
@@ -324,7 +447,7 @@ export default function App({ user, onLogout }) {
           <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#3F7BD9,#6C9DE4)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, boxShadow: "0 4px 12px rgba(63,123,217,0.4)" }}>
             <span style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>A</span>
           </div>
-          {SISTEMAS.map(s => {
+          {sistemasAtuais.map(s => {
             const ativo = s.id === sistema; const ss = statusDe(s.score);
             return (
               <button key={s.id} onClick={() => setSistema(s.id)} title={s.nome}
@@ -339,9 +462,9 @@ export default function App({ user, onLogout }) {
             );
           })}
           {sexo === "F" && (() => {
-            const ativo = sistema === REPRODUTIVO.id; const ss = statusDe(REPRODUTIVO.score);
+            const ativo = sistema === reprodutivoAtual.id; const ss = statusDe(reprodutivoAtual.score);
             return (
-              <button key={REPRODUTIVO.id} onClick={() => setSistema(REPRODUTIVO.id)} title={REPRODUTIVO.nome}
+              <button key={reprodutivoAtual.id} onClick={() => setSistema(reprodutivoAtual.id)} title={reprodutivoAtual.nome}
                 style={{ position: "relative", width: 46, height: 46, borderRadius: 13, border: "none", cursor: "pointer",
                   background: ativo ? "linear-gradient(135deg,#D14D8F,#E87DB0)" : "transparent",
                   color: ativo ? "#fff" : t.textDim, display: "flex", alignItems: "center", justifyContent: "center",
@@ -357,13 +480,13 @@ export default function App({ user, onLogout }) {
           <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 19, fontWeight: 800, letterSpacing: "-0.02em" }}>Instituto Awada</div>
-              <div style={{ fontSize: 12, color: t.textDim }}>Digital Twin · Eric Coutinho, 33 anos</div>
+              <div style={{ fontSize: 12, color: t.textDim }}>Digital Twin · {nomePaciente}, {idadeCrono} anos{loadingDados ? " · carregando..." : ""}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ ...glass, display: "flex", gap: 16, padding: "8px 16px", borderRadius: 13 }}>
-                <div><div style={{ fontSize: 10, color: t.textDim }}>Idade biológica</div><div style={{ fontSize: 16, fontWeight: 800 }}>36</div></div>
+                <div><div style={{ fontSize: 10, color: t.textDim }}>Idade biológica</div><div style={{ fontSize: 16, fontWeight: 800 }}>{idadeBio}</div></div>
                 <div style={{ width: 1, background: t.border }} />
-                <div><div style={{ fontSize: 10, color: t.textDim }}>Cronológica</div><div style={{ fontSize: 16, fontWeight: 800 }}>33</div></div>
+                <div><div style={{ fontSize: 10, color: t.textDim }}>Cronológica</div><div style={{ fontSize: 16, fontWeight: 800 }}>{idadeCrono}</div></div>
               </div>
               <div style={{ ...glass, display: "flex", padding: 4, borderRadius: 11 }}>
                 {["M", "F"].map(x => (
@@ -450,83 +573,111 @@ export default function App({ user, onLogout }) {
               </div>
 
               {aba === "suplementos" ? (
-                <div style={{ ...glass, padding: 16 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Protocolo de suplementação · validar com seu médico</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {SUPLEMENTOS.map((s, i) => (
-                      <div key={i} style={{ border: `1px solid ${t.border}`, borderRadius: 11, padding: "11px 14px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700 }}>{s.nome}</span>
-                          <span style={{ fontSize: 12, fontWeight: 800, color: "#3F7BD9", whiteSpace: "nowrap" }}>{s.dose}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: "#3F7BD9", marginBottom: 5 }}>{s.quando}</div>
-                        <div style={{ fontSize: 12, color: t.textDim, lineHeight: 1.5 }}>{s.motivo}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 12, fontSize: 11, color: "#92400E", background: "rgba(217,119,6,0.12)", padding: "10px 13px", borderRadius: 9, lineHeight: 1.5 }}>
-                    Protocolo educativo — não substitui prescrição médica. Introduzir gradualmente, começando pelos 4 primeiros na primeira semana. Reavaliar em 90 dias com novos exames.
-                  </div>
-                </div>
-              ) : aba === "alimentar" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                dp?.relatorio_prescricao ? (
                   <div style={{ ...glass, padding: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Objetivos do plano alimentar</div>
-                    {ALIMENTAR.objetivos.map((p, i) => (
-                      <div key={i} style={{ display: "flex", gap: 10, marginBottom: 9, fontSize: 12.5, lineHeight: 1.55 }}>
-                        <span style={{ color: "#3F7BD9", fontWeight: 800, minWidth: 14 }}>{i + 1}</span>
-                        <span style={{ color: t.textDim }}>{p}</span>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Protocolo de suplementação · validar com seu médico</div>
+                    <MarkdownTab text={dp.relatorio_prescricao} t={t} />
+                  </div>
+                ) : (
+                  <div style={{ ...glass, padding: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Protocolo de suplementação · validar com seu médico</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {SUPLEMENTOS.map((s, i) => (
+                        <div key={i} style={{ border: `1px solid ${t.border}`, borderRadius: 11, padding: "11px 14px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, marginBottom: 4 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>{s.nome}</span>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#3F7BD9", whiteSpace: "nowrap" }}>{s.dose}</span>
+                          </div>
+                          <div style={{ fontSize: 11, color: "#3F7BD9", marginBottom: 5 }}>{s.quando}</div>
+                          <div style={{ fontSize: 12, color: t.textDim, lineHeight: 1.5 }}>{s.motivo}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 12, fontSize: 11, color: "#92400E", background: "rgba(217,119,6,0.12)", padding: "10px 13px", borderRadius: 9, lineHeight: 1.5 }}>
+                      Protocolo educativo — não substitui prescrição médica. Introduzir gradualmente, começando pelos 4 primeiros na primeira semana. Reavaliar em 90 dias com novos exames.
+                    </div>
+                  </div>
+                )
+              ) : aba === "alimentar" ? (
+                dp?.relatorio_nutricao ? (
+                  <div style={{ ...glass, padding: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Plano alimentar personalizado</div>
+                    <MarkdownTab text={dp.relatorio_nutricao} t={t} />
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div style={{ ...glass, padding: 16 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Objetivos do plano alimentar</div>
+                      {ALIMENTAR.objetivos.map((p, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, marginBottom: 9, fontSize: 12.5, lineHeight: 1.55 }}>
+                          <span style={{ color: "#3F7BD9", fontWeight: 800, minWidth: 14 }}>{i + 1}</span>
+                          <span style={{ color: t.textDim }}>{p}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div style={{ ...glass, padding: 15 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#16A34A", marginBottom: 10 }}>Priorizar</div>
+                        {ALIMENTAR.priorizar.map((x, i) => (
+                          <div key={i} style={{ fontSize: 12, color: t.textDim, padding: "5px 0", borderBottom: i < ALIMENTAR.priorizar.length - 1 ? `1px solid ${t.border}` : "none", lineHeight: 1.4 }}>{x}</div>
+                        ))}
+                      </div>
+                      <div style={{ ...glass, padding: 15 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: "#DC2626", marginBottom: 10 }}>Reduzir ou eliminar</div>
+                        {ALIMENTAR.evitar.map((x, i) => (
+                          <div key={i} style={{ fontSize: 12, color: t.textDim, padding: "5px 0", borderBottom: i < ALIMENTAR.evitar.length - 1 ? `1px solid ${t.border}` : "none", lineHeight: 1.4 }}>{x}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : aba === "terapia" ? (
+                dp?.relatorio_terapia ? (
+                  <div style={{ ...glass, padding: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Orientações terapêuticas</div>
+                    <MarkdownTab text={dp.relatorio_terapia} t={t} />
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {TERAPIA.map((b, i) => (
+                      <div key={i} style={{ ...glass, padding: 15 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 2 }}>{b.titulo}</div>
+                        <div style={{ fontSize: 11, color: "#3F7BD9", marginBottom: 10 }}>{b.sub}</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
+                          {b.itens.map((x, j) => (
+                            <div key={j} style={{ fontSize: 12, color: t.textDim, display: "flex", gap: 7, lineHeight: 1.4 }}>
+                              <span style={{ color: "#3F7BD9", flexShrink: 0 }}>•</span>{x}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                    <div style={{ ...glass, padding: 15 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#16A34A", marginBottom: 10 }}>Priorizar</div>
-                      {ALIMENTAR.priorizar.map((x, i) => (
-                        <div key={i} style={{ fontSize: 12, color: t.textDim, padding: "5px 0", borderBottom: i < ALIMENTAR.priorizar.length - 1 ? `1px solid ${t.border}` : "none", lineHeight: 1.4 }}>{x}</div>
-                      ))}
-                    </div>
-                    <div style={{ ...glass, padding: 15 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#DC2626", marginBottom: 10 }}>Reduzir ou eliminar</div>
-                      {ALIMENTAR.evitar.map((x, i) => (
-                        <div key={i} style={{ fontSize: 12, color: t.textDim, padding: "5px 0", borderBottom: i < ALIMENTAR.evitar.length - 1 ? `1px solid ${t.border}` : "none", lineHeight: 1.4 }}>{x}</div>
-                      ))}
-                    </div>
+                )
+              ) : aba === "treino" ? (
+                dp?.relatorio_treinos ? (
+                  <div style={{ ...glass, padding: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Protocolo de treino 90 dias</div>
+                    <MarkdownTab text={dp.relatorio_treinos} t={t} />
                   </div>
-                </div>
-              ) : aba === "terapia" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {TERAPIA.map((b, i) => (
-                    <div key={i} style={{ ...glass, padding: 15 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 800, marginBottom: 2 }}>{b.titulo}</div>
-                      <div style={{ fontSize: 11, color: "#3F7BD9", marginBottom: 10 }}>{b.sub}</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-                        {b.itens.map((x, j) => (
-                          <div key={j} style={{ fontSize: 12, color: t.textDim, display: "flex", gap: 7, lineHeight: 1.4 }}>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {TREINO.map((f, i) => (
+                      <div key={i} style={{ ...glass, padding: 15 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 800 }}>{f.fase}</span>
+                          <span style={{ fontSize: 11, color: t.textDim }}>{f.dias}</span>
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "#3F7BD9", fontWeight: 700, marginBottom: 10 }}>Meta: {f.meta}</div>
+                        {f.itens.map((x, j) => (
+                          <div key={j} style={{ fontSize: 12, color: t.textDim, display: "flex", gap: 7, padding: "3px 0", lineHeight: 1.4 }}>
                             <span style={{ color: "#3F7BD9", flexShrink: 0 }}>•</span>{x}
                           </div>
                         ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : aba === "treino" ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  {TREINO.map((f, i) => (
-                    <div key={i} style={{ ...glass, padding: 15 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 3 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 800 }}>{f.fase}</span>
-                        <span style={{ fontSize: 11, color: t.textDim }}>{f.dias}</span>
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "#3F7BD9", fontWeight: 700, marginBottom: 10 }}>Meta: {f.meta}</div>
-                      {f.itens.map((x, j) => (
-                        <div key={j} style={{ fontSize: 12, color: t.textDim, display: "flex", gap: 7, padding: "3px 0", lineHeight: 1.4 }}>
-                          <span style={{ color: "#3F7BD9", flexShrink: 0 }}>•</span>{x}
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )
               ) : isGeral ? (
                 <>
                   {/* Gauge + distribuição */}
@@ -552,7 +703,7 @@ export default function App({ user, onLogout }) {
                   <div style={{ ...glass, padding: 16 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim, marginBottom: 12 }}>Pontos de maior atenção</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px,1fr))", gap: 8 }}>
-                      {ATENCAO.map((a, i) => (
+                      {atencaoAtual.map((a, i) => (
                         <div key={i} style={{ background: COR[a.s].bg, borderRadius: 10, padding: "8px 11px" }}>
                           <div style={{ fontSize: 12, fontWeight: 700, color: COR[a.s].c }}>{a.nome}</div>
                           <div style={{ fontSize: 13, fontWeight: 800 }}>{a.valor}</div>
@@ -569,12 +720,12 @@ export default function App({ user, onLogout }) {
                         <div style={{ width: 28, height: 28, borderRadius: 8, background: "linear-gradient(135deg,#3F7BD9,#6C9DE4)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon name="spark" size={15} /></div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 800 }}>Análise integrativa da IA</div>
-                          <div style={{ fontSize: 10, color: t.textDim }}>{RELATORIO_IA.modelo} · {RELATORIO_IA.data}</div>
+                          <div style={{ fontSize: 10, color: t.textDim }}>{relatorioAtual.modelo} · {relatorioAtual.data}</div>
                         </div>
                       </div>
                       <span style={{ fontSize: 10, fontWeight: 700, color: "#16A34A", background: "rgba(22,163,74,0.12)", padding: "3px 9px", borderRadius: 20 }}>Revisado</span>
                     </div>
-                    <div style={{ fontSize: 12.5, lineHeight: 1.65, color: t.textDim, whiteSpace: "pre-line" }}>{RELATORIO_IA.texto}</div>
+                    <div style={{ fontSize: 12.5, lineHeight: 1.65, color: t.textDim, whiteSpace: "pre-line" }}>{relatorioAtual.texto}</div>
                   </div>
                 </>
               ) : (
@@ -587,7 +738,7 @@ export default function App({ user, onLogout }) {
                       </div>
                       <div style={{ fontSize: 12, fontWeight: 700, color: COR[st].c, background: COR[st].bg, padding: "5px 13px", borderRadius: 20 }}>{COR[st].label}</div>
                     </div>
-                    <div style={{ fontSize: 12.5, color: t.textDim, lineHeight: 1.55 }}>{FRASE[sistema]}</div>
+                    <div style={{ fontSize: 12.5, color: t.textDim, lineHeight: 1.55 }}>{fraseAtual[sistema]}</div>
                   </div>
 
                   <div style={{ ...glass, padding: 16 }}>
@@ -617,7 +768,7 @@ export default function App({ user, onLogout }) {
                       <div style={{ fontSize: 12.5, fontWeight: 800 }}>Leitura da IA para este sistema</div>
                     </div>
                     <div style={{ fontSize: 12.5, lineHeight: 1.65, color: t.textDim }}>
-                      {RELATORIO_IA.texto.split("\n\n")[0]}
+                      {relatorioAtual.texto.split("\n\n")[0]}
                     </div>
                     <button onClick={() => setSistema("geral")} style={{ marginTop: 12, background: "transparent", border: `1px solid ${t.border}`, color: "#3F7BD9", fontSize: 12, fontWeight: 700, padding: "7px 14px", borderRadius: 9, cursor: "pointer" }}>
                       Ver análise completa
