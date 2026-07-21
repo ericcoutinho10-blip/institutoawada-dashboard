@@ -377,9 +377,24 @@ function Hotspot3D({ orgao, ativo, onClick }) {
 
 // ── Error boundary ────────────────────────────────────────────────────────────────
 class ErrBoundary extends Component {
-  constructor(p) { super(p); this.state = { err: false }; }
-  static getDerivedStateFromError(e) { console.warn("[Body3D] ErrorBoundary:", e); return { err: true }; }
-  render() { return this.state.err ? this.props.fallback : this.props.children; }
+  constructor(p) { super(p); this.state = { err: false, msg: "" }; }
+  static getDerivedStateFromError(e) { return { err: true, msg: e?.message || String(e) }; }
+  render() {
+    if (!this.state.err) return this.props.children;
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        {this.props.fallback}
+        <div style={{
+          position: "absolute", bottom: 8, left: 8, right: 8,
+          background: "rgba(220,38,38,0.9)", color: "#fff",
+          fontSize: 11, borderRadius: 8, padding: "6px 10px",
+          fontFamily: "monospace", zIndex: 99,
+        }}>
+          ⚠ Body3D erro: {this.state.msg}
+        </div>
+      </div>
+    );
+  }
 }
 
 class BloomBoundary extends Component {
@@ -392,16 +407,21 @@ class BloomBoundary extends Component {
 export default function Body3D({ sexo, orgaos, sistemaAtivo, onClickSistema, fallback }) {
   const glbUrl = `/digital-twin/corpo-${sexo === "F" ? "mulher" : "homem"}.glb`;
   const [glbOk, setGlbOk] = useState(false);
+  const [glbStatus, setGlbStatus] = useState("checking");
 
   useEffect(() => {
     fetch(glbUrl, { method: "HEAD" })
-      .then(r => setGlbOk(r.ok))
-      .catch(() => setGlbOk(false));
+      .then(r => { setGlbOk(r.ok); setGlbStatus(r.ok ? "ok-" + r.status : "fail-" + r.status); })
+      .catch(e => { setGlbOk(false); setGlbStatus("err:" + e.message); });
   }, [glbUrl]);
 
   return (
     <ErrBoundary fallback={fallback}>
       <div style={{ width: "100%", height: "100%", position: "absolute", inset: 0, background: "transparent" }}>
+        {/* debug badge — remover após teste */}
+        <div style={{ position: "absolute", top: 8, right: 8, zIndex: 99, background: "rgba(0,0,0,0.7)", color: "#0f0", fontSize: 10, padding: "3px 7px", borderRadius: 6, fontFamily: "monospace", pointerEvents: "none" }}>
+          3D · glb:{glbStatus}
+        </div>
         <Canvas
           camera={{ position: [0, 0, 2.9], fov: 44 }}
           style={{ width: "100%", height: "100%" }}
