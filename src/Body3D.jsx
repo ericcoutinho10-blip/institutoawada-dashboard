@@ -1,8 +1,9 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Html, useGLTF } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
 import { Suspense, useRef, useState, useEffect, useMemo, Component } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 // ── Fresnel shader — cria o efeito azul translúcido com brilho nas bordas ──────
 const fresnelVert = `
@@ -184,7 +185,7 @@ function BloodVessels() {
       const pts = path.map(([x,y,z]) => new THREE.Vector3(x,y,z));
       return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 20, 0.006, 5, false);
     });
-    return mergeGeometries(geos);
+    return safeMerge(geos);
   }, []);
   if (!geo) return null;
   return (
@@ -194,13 +195,8 @@ function BloodVessels() {
   );
 }
 
-function mergeGeometries(geos) {
-  try {
-    const { mergeGeometries: mg } = require("three/examples/jsm/utils/BufferGeometryUtils.js");
-    return mg(geos);
-  } catch {
-    return geos[0];
-  }
+function safeMerge(geos) {
+  try { return mergeGeometries(geos); } catch { return geos[0]; }
 }
 
 // Coluna vertebral
@@ -284,10 +280,12 @@ function AnatomyScene({ orgaos, sistemaAtivo, onClickSistema, glbUrl, glbOk }) {
       {/* Hotspots 3D */}
       {orgaos.map(o => <Hotspot3D key={o.id} orgao={o} ativo={sistemaAtivo === o.id} onClick={onClickSistema} />)}
 
-      {/* Bloom glow */}
-      <EffectComposer>
-        <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.5} intensity={1.2} radius={0.7} />
-      </EffectComposer>
+      {/* Bloom glow — isolado para não derrubar a cena se WebGL2 não suportar */}
+      <BloomBoundary>
+        <EffectComposer>
+          <Bloom luminanceThreshold={0.15} luminanceSmoothing={0.5} intensity={1.2} radius={0.7} />
+        </EffectComposer>
+      </BloomBoundary>
 
       <OrbitControls
         enablePan={false}
@@ -380,8 +378,14 @@ function Hotspot3D({ orgao, ativo, onClick }) {
 // ── Error boundary ────────────────────────────────────────────────────────────────
 class ErrBoundary extends Component {
   constructor(p) { super(p); this.state = { err: false }; }
-  static getDerivedStateFromError() { return { err: true }; }
+  static getDerivedStateFromError(e) { console.warn("[Body3D] ErrorBoundary:", e); return { err: true }; }
   render() { return this.state.err ? this.props.fallback : this.props.children; }
+}
+
+class BloomBoundary extends Component {
+  constructor(p) { super(p); this.state = { err: false }; }
+  static getDerivedStateFromError() { return { err: true }; }
+  render() { return this.state.err ? null : this.props.children; }
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────────
