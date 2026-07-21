@@ -1,6 +1,12 @@
-import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useState, useEffect, useRef, lazy, Suspense, Component } from "react";
 import Profile from "./Profile";
 const Body3D = lazy(() => import("./Body3D"));
+
+class Body3DErrBoundary extends Component {
+  constructor(p) { super(p); this.state = { err: false }; }
+  static getDerivedStateFromError() { return { err: true }; }
+  render() { return this.state.err ? this.props.fallback : this.props.children; }
+}
 
 const IMG = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
@@ -522,21 +528,26 @@ export default function App({ user, onLogout }) {
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{sis.nome}</div>
               </div>
               {isGeral ? (
-                <Suspense fallback={
+                <Body3DErrBoundary fallback={
                   <img ref={imgRef} src={imgSrc} alt="corpo"
                     style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
                 }>
-                  <Body3D
-                    sexo={sexo}
-                    orgaos={orgaosClicaveis}
-                    sistemaAtivo={sistema}
-                    onClickSistema={setSistema}
-                    fallback={
-                      <img ref={imgRef} key={imgKey} src={imgSrc} alt="corpo"
-                        style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
-                    }
-                  />
-                </Suspense>
+                  <Suspense fallback={
+                    <img ref={imgRef} src={imgSrc} alt="corpo"
+                      style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
+                  }>
+                    <Body3D
+                      sexo={sexo}
+                      orgaos={orgaosClicaveis}
+                      sistemaAtivo={sistema}
+                      onClickSistema={setSistema}
+                      fallback={
+                        <img ref={imgRef} key={imgKey} src={imgSrc} alt="corpo"
+                          style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
+                      }
+                    />
+                  </Suspense>
+                </Body3DErrBoundary>
               ) : (
                 <>
                   <img ref={imgRef} key={imgKey} src={imgSrc} alt={sis.nome}
