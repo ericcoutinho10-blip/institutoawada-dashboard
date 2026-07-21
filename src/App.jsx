@@ -558,7 +558,7 @@ export default function App({ user, onLogout }) {
               </div>
               {isGeral && (
                 <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10, display: "flex", gap: 4 }}>
-                  {[["Vídeo", true], ["2D", false]].map(([label, val]) => {
+                  {[["3D", true], ["2D", false]].map(([label, val]) => {
                     const ativo = modoVideo === val;
                     return (
                       <button key={label} onClick={() => setModoVideo(val)}
