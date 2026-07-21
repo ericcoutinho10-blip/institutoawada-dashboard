@@ -394,6 +394,7 @@ export default function App({ user, onLogout }) {
   const [perfilAberto, setPerfilAberto] = useState(false);
   const [modoVideo, setModoVideo] = useState(true);
   const imgRef = useRef(null);
+  const videoRef = useRef(null);
 
   // ── Dados reais do paciente (carregados via ?id= na URL) ──
   const [dadosPaciente, setDadosPaciente] = useState(null);
@@ -461,6 +462,9 @@ export default function App({ user, onLogout }) {
   const imgSrc = IMG[imgKey] || IMG[`neutro_${sexo}`];
   const videoKey = tipoCorporal === "normal" ? `normal_${sexo}` : `neutro_${sexo}`;
   const videoSrc = VIDEO[videoKey];
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.playbackRate = 0.6;
+  }, [videoSrc]);
   const orgaosClicaveis = sexo === "F" ? [...orgaosAtuais, reprodutivoAtual] : orgaosAtuais;
   const imgBox = useImgBox(imgRef, imgSrc);
   const scoreAnim = Math.round(useCount(sis.score, 900, sistema));
@@ -573,7 +577,8 @@ export default function App({ user, onLogout }) {
               )}
               {isGeral ? (
                 modoVideo ? (
-                  <video key={videoSrc} autoPlay loop muted playsInline
+                  <video ref={videoRef} key={videoSrc} autoPlay loop muted playsInline
+                    onLoadedMetadata={() => { if (videoRef.current) videoRef.current.playbackRate = 0.6; }}
                     style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }}>
                     <source src={videoSrc} type="video/mp4" />
                   </video>
