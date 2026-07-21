@@ -1,12 +1,5 @@
-import { useState, useEffect, useRef, lazy, Suspense, Component } from "react";
+import { useState, useEffect, useRef } from "react";
 import Profile from "./Profile";
-const Body3D = lazy(() => import("./Body3D"));
-
-class Body3DErrBoundary extends Component {
-  constructor(p) { super(p); this.state = { err: false }; }
-  static getDerivedStateFromError() { return { err: true }; }
-  render() { return this.state.err ? this.props.fallback : this.props.children; }
-}
 
 const IMG = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.jpg",
@@ -22,6 +15,25 @@ const IMG = {
   "musculoesqueletico": "/digital-twin/sistema-musculoesqueletico.jpg",
   "imunologico": "/digital-twin/sistema-imunologico.jpg",
   "reprodutivo": "/digital-twin/sistema-feminino.jpg",
+};
+
+const VIDEO = {
+  "neutro_M": "/digital-twin/corpo-homem-sobrepeso.mp4",
+  "neutro_F": "/digital-twin/corpo-mulher-sobrepeso.mp4",
+  "normal_M": "/digital-twin/corpo-homem-normal.mp4",
+  "normal_F": "/digital-twin/corpo-mulher-normal.mp4",
+};
+
+const ICONES = {
+  cardiovascular:     "/icons/organ-cardiovascular.png",
+  respiratorio:       "/icons/organ-respiratorio.png",
+  digestivo:          "/icons/organ-digestivo.png",
+  neurologico:        "/icons/organ-neurologico.png",
+  endocrino:          "/icons/organ-endocrino.png",
+  renal:              "/icons/organ-renal.png",
+  musculoesqueletico: "/icons/organ-musculoesqueletico.png",
+  imunologico:        "/icons/organ-imunologico.png",
+  reprodutivo:        "/icons/organ-reprodutivo.png",
 };
 
 const SISTEMAS = [
@@ -379,6 +391,7 @@ export default function App({ user, onLogout }) {
   const [aba, setAba] = useState("resumo");
   const [hoverOrgao, setHoverOrgao] = useState(null);
   const [perfilAberto, setPerfilAberto] = useState(false);
+  const [modoVideo, setModoVideo] = useState(true);
   const imgRef = useRef(null);
 
   // ── Dados reais do paciente (carregados via ?id= na URL) ──
@@ -445,6 +458,8 @@ export default function App({ user, onLogout }) {
   const tipoCorporal = dp?.paciente?.tipo_corpo || "sobrepeso";
   const imgKey = isGeral ? (tipoCorporal === "normal" ? `normal_${sexo}` : `neutro_${sexo}`) : sistema;
   const imgSrc = IMG[imgKey] || IMG[`neutro_${sexo}`];
+  const videoKey = tipoCorporal === "normal" ? `normal_${sexo}` : `neutro_${sexo}`;
+  const videoSrc = VIDEO[videoKey];
   const orgaosClicaveis = sexo === "F" ? [...orgaosAtuais, reprodutivoAtual] : orgaosAtuais;
   const imgBox = useImgBox(imgRef, imgSrc);
   const scoreAnim = Math.round(useCount(sis.score, 900, sistema));
@@ -459,15 +474,20 @@ export default function App({ user, onLogout }) {
           </div>
           {sistemasAtuais.map(s => {
             const ativo = s.id === sistema; const ss = statusDe(s.score);
+            const iconeImg = ICONES[s.id];
             return (
               <button key={s.id} onClick={() => setSistema(s.id)} title={s.nome}
-                style={{ position: "relative", width: 46, height: 46, borderRadius: 13, border: "none", cursor: "pointer",
-                  background: ativo ? "linear-gradient(135deg,#3F7BD9,#6C9DE4)" : "transparent",
-                  color: ativo ? "#fff" : t.textDim, display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: ativo ? "0 4px 14px rgba(63,123,217,0.4)" : "none", transition: "all 0.2s",
+                style={{ position: "relative", width: 46, height: 46, borderRadius: 13, cursor: "pointer",
+                  background: ativo ? "rgba(63,123,217,0.12)" : "transparent",
+                  border: ativo ? "2px solid #3F7BD9" : "2px solid transparent",
+                  color: ativo ? "#3F7BD9" : t.textDim, display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: ativo ? "0 4px 14px rgba(63,123,217,0.25)" : "none", transition: "all 0.2s",
                   marginBottom: s.id === "geral" ? 8 : 0 }}>
-                <Icon name={s.icone} />
-                {!ativo && s.id !== "geral" && <span style={{ position: "absolute", top: 7, right: 8, width: 7, height: 7, borderRadius: "50%", background: COR[ss].c }} />}
+                {iconeImg
+                  ? <img src={iconeImg} alt={s.nome} style={{ width: 30, height: 30, objectFit: "contain", filter: ativo ? "drop-shadow(0 0 3px rgba(63,123,217,0.6))" : "none", transition: "filter 0.2s" }} />
+                  : <Icon name={s.icone} />
+                }
+                {!ativo && s.id !== "geral" && <span style={{ position: "absolute", top: 5, right: 6, width: 7, height: 7, borderRadius: "50%", background: COR[ss].c }} />}
               </button>
             );
           })}
@@ -475,12 +495,16 @@ export default function App({ user, onLogout }) {
             const ativo = sistema === reprodutivoAtual.id; const ss = statusDe(reprodutivoAtual.score);
             return (
               <button key={reprodutivoAtual.id} onClick={() => setSistema(reprodutivoAtual.id)} title={reprodutivoAtual.nome}
-                style={{ position: "relative", width: 46, height: 46, borderRadius: 13, border: "none", cursor: "pointer",
-                  background: ativo ? "linear-gradient(135deg,#D14D8F,#E87DB0)" : "transparent",
-                  color: ativo ? "#fff" : t.textDim, display: "flex", alignItems: "center", justifyContent: "center",
-                  boxShadow: ativo ? "0 4px 14px rgba(209,77,143,0.4)" : "none", transition: "all 0.2s" }}>
-                <Icon name={REPRODUTIVO.icone} />
-                {!ativo && <span style={{ position: "absolute", top: 7, right: 8, width: 7, height: 7, borderRadius: "50%", background: COR[ss].c }} />}
+                style={{ position: "relative", width: 46, height: 46, borderRadius: 13, cursor: "pointer",
+                  background: ativo ? "rgba(209,77,143,0.12)" : "transparent",
+                  border: ativo ? "2px solid #D14D8F" : "2px solid transparent",
+                  color: ativo ? "#D14D8F" : t.textDim, display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: ativo ? "0 4px 14px rgba(209,77,143,0.25)" : "none", transition: "all 0.2s" }}>
+                {ICONES.reprodutivo
+                  ? <img src={ICONES.reprodutivo} alt={REPRODUTIVO.nome} style={{ width: 30, height: 30, objectFit: "contain", filter: ativo ? "drop-shadow(0 0 3px rgba(209,77,143,0.6))" : "none", transition: "filter 0.2s" }} />
+                  : <Icon name={REPRODUTIVO.icone} />
+                }
+                {!ativo && <span style={{ position: "absolute", top: 5, right: 6, width: 7, height: 7, borderRadius: "50%", background: COR[ss].c }} />}
               </button>
             );
           })()}
@@ -527,27 +551,35 @@ export default function App({ user, onLogout }) {
                 <div style={{ fontSize: 10, color: "#7A8899", textTransform: "uppercase", letterSpacing: "0.1em" }}>Digital Twin</div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{sis.nome}</div>
               </div>
+              {isGeral && (
+                <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10, display: "flex", gap: 4 }}>
+                  {[["Vídeo", true], ["2D", false]].map(([label, val]) => {
+                    const ativo = modoVideo === val;
+                    return (
+                      <button key={label} onClick={() => setModoVideo(val)}
+                        style={{
+                          fontSize: 11, fontWeight: 800, padding: "4px 11px", borderRadius: 8,
+                          border: ativo ? "none" : "1.5px solid #CBD5E1",
+                          background: ativo ? "#3F7BD9" : "rgba(255,255,255,0.7)",
+                          color: ativo ? "#fff" : "#64748B",
+                          cursor: "pointer", backdropFilter: "blur(6px)",
+                          boxShadow: ativo ? "0 2px 8px rgba(63,123,217,0.4)" : "none",
+                          transition: "all 0.15s",
+                        }}>{label}</button>
+                    );
+                  })}
+                </div>
+              )}
               {isGeral ? (
-                <Body3DErrBoundary fallback={
-                  <img ref={imgRef} src={imgSrc} alt="corpo"
+                modoVideo ? (
+                  <video key={videoSrc} autoPlay loop muted playsInline
+                    style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }}>
+                    <source src={videoSrc} type="video/mp4" />
+                  </video>
+                ) : (
+                  <img ref={imgRef} key={imgKey} src={imgSrc} alt="corpo"
                     style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
-                }>
-                  <Suspense fallback={
-                    <img ref={imgRef} src={imgSrc} alt="corpo"
-                      style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
-                  }>
-                    <Body3D
-                      sexo={sexo}
-                      orgaos={orgaosClicaveis}
-                      sistemaAtivo={sistema}
-                      onClickSistema={setSistema}
-                      fallback={
-                        <img ref={imgRef} key={imgKey} src={imgSrc} alt="corpo"
-                          style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }} />
-                      }
-                    />
-                  </Suspense>
-                </Body3DErrBoundary>
+                )
               ) : (
                 <>
                   <img ref={imgRef} key={imgKey} src={imgSrc} alt={sis.nome}
