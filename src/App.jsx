@@ -25,6 +25,7 @@ const VIDEO = {
 };
 
 const ICONES = {
+  geral:              "/icons/organ-geral.png",
   cardiovascular:     "/icons/organ-cardiovascular.png",
   respiratorio:       "/icons/organ-respiratorio.png",
   digestivo:          "/icons/organ-digestivo.png",
