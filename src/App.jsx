@@ -19,6 +19,7 @@ const IMG = {
 
 const VIDEO = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.mp4",
+  "neutro_F": "/digital-twin/corpo-mulher-sobrepeso.mp4",
   "normal_M": "/digital-twin/corpo-homem-normal.mp4",
   "normal_F": "/digital-twin/corpo-mulher-normal.mp4",
 };
