@@ -528,9 +528,12 @@ export default function App({ user, onLogout }) {
                 <div><div style={{ fontSize: 10, color: t.textDim }}>Cronológica</div><div style={{ fontSize: 16, fontWeight: 800 }}>{idadeCrono}</div></div>
               </div>
               <div style={{ ...glass, display: "flex", padding: 4, borderRadius: 11 }}>
-                {["M", "F"].map(x => (
-                  <button key={x} onClick={() => { setSexo(x); if (x === "M" && sistema === "reprodutivo") setSistema("geral"); }} style={{ border: "none", cursor: "pointer", padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: sexo === x ? "#3F7BD9" : "transparent", color: sexo === x ? "#fff" : t.textDim }}>{x}</button>
-                ))}
+                {dadosPaciente?.paciente?.sexo
+                  ? <span style={{ padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: "#3F7BD9", color: "#fff" }}>{dadosPaciente.paciente.sexo}</span>
+                  : ["M", "F"].map(x => (
+                    <button key={x} onClick={() => { setSexo(x); if (x === "M" && sistema === "reprodutivo") setSistema("geral"); }} style={{ border: "none", cursor: "pointer", padding: "5px 11px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: sexo === x ? "#3F7BD9" : "transparent", color: sexo === x ? "#fff" : t.textDim }}>{x}</button>
+                  ))
+                }
               </div>
               <button onClick={() => setDark(!dark)} style={{ ...glass, width: 40, height: 40, borderRadius: 11, cursor: "pointer", color: t.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {dark ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" strokeLinecap="round"/></svg>
