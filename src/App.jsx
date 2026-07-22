@@ -19,7 +19,6 @@ const IMG = {
 
 const VIDEO = {
   "neutro_M": "/digital-twin/corpo-homem-sobrepeso.mp4",
-  "neutro_F": "/digital-twin/corpo-mulher-sobrepeso.mp4",
   "normal_M": "/digital-twin/corpo-homem-normal.mp4",
   "normal_F": "/digital-twin/corpo-mulher-normal.mp4",
 };
@@ -579,7 +578,7 @@ export default function App({ user, onLogout }) {
                 </div>
               )}
               {isGeral ? (
-                modoVideo ? (
+                modoVideo && videoSrc ? (
                   <video ref={videoRef} key={videoSrc} autoPlay loop muted playsInline
                     onLoadedMetadata={() => { if (videoRef.current) videoRef.current.playbackRate = 0.6; }}
                     style={{ height: "100%", width: "auto", maxWidth: "100%", objectFit: "contain" }}>
